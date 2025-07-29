@@ -1,1 +1,1 @@
-# Gallblader-Cancer-Prediction-ML
+# Gallblader-Cancer-Detection-ML
