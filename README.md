@@ -101,13 +101,12 @@ Dataset used: [Gallbladder Cancer Ultrasound Dataset](https://www.kaggle.com/dat
 ---
 
 ## 🚀 Usage
-1. Clone the repository:  
+### 1. Clone the repository:  
    ```
    git clone https://github.com/Slightsmile/gallbladder-cancer-detection-dl.git
    ```
-2. Install dependencies
-
-3. Run Python file in Compiler
+### 2. Install dependencies
+### 3. Run Python file in Compiler
 
 ---
 
