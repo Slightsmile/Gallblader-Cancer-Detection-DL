@@ -72,33 +72,41 @@ gap to the old 87.17 % came from the **ill-posed 5-way label**, not the split.
 
 ## Results
 
-Out-of-fold, 5-fold CV grouped on the source image. Full table with confidence
-intervals, calibration and per-fold stability: [docs/results.md](docs/results.md).
+Out-of-fold, **nested** 5-fold CV grouped on the source image: the stopping epoch
+and the raw/EMA choice are made on an inner split, and each outer fold is scored
+exactly once. Full table with CIs, calibration and ablations:
+[docs/results.md](docs/results.md).
 
 | model | accuracy | 95 % CI | balanced acc. | macro AUC | malignant sens. |
 | --- | --- | --- | --- | --- | --- |
-| efficientnet_b0 | 0.7833 | [0.760, 0.805] | 0.8052 | 0.9221 | 0.8830 |
-| resnet50 | 0.7928 | [0.770, 0.814] | 0.8164 | 0.9233 | 0.8830 |
-| efficientnet_b0 **+ second-order pooling** | 0.8582 | [0.838, 0.877] | 0.8715 | 0.9578 | 0.9132 |
-| **deit3_small** | 0.8837 | [0.865, 0.900] | **0.8910** | 0.9720 | 0.9094 |
-| ensemble (equal soft vote) | 0.8629 | [0.843, 0.881] | 0.8770 | 0.9681 | **0.9170** |
-| **ensemble (logistic stacking)** | **0.8845** | [0.866, 0.901] | 0.8824 | **0.9728** | 0.8566 |
+| efficientnet_b0 | 0.7402 | [0.716, 0.764] | 0.7554 | 0.8976 | 0.8038 |
+| resnet50 | 0.7474 | [0.723, 0.771] | 0.7793 | 0.9082 | 0.8679 |
+| efficientnet_b0 **+ second-order pooling** | 0.8215 | [0.800, 0.842] | 0.8424 | 0.9465 | **0.9170** |
+| **deit3_small** | 0.8821 | [0.864, 0.900] | **0.8873** | **0.9731** | 0.8981 |
+| ensemble (equal soft vote) | 0.8550 | [0.835, 0.874] | 0.8686 | 0.9625 | 0.9094 |
+| **ensemble (logistic stacking)** | **0.8853** | [0.868, 0.902] | 0.8805 | 0.9713 | 0.8453 |
 
-Three findings worth more than the headline number:
+Four findings matter more than the headline 88.5 %:
 
-1. **The transformer beats both CNNs by ~7 points** (0.8910 vs 0.8164 / 0.8052
-   balanced), consistent with FocusMAE's image baselines where DeiT and ViT
+1. **The transformer beats both CNNs by 9–13 balanced points** (0.8873 vs 0.7793
+   / 0.7554), consistent with FocusMAE's image baselines where DeiT and ViT
    outrank ResNet50.
-2. **Second-order pooling is worth +6.6 points** on the same backbone, same
-   schedule, same everything — average pooling discards the channel covariance,
-   and malignancy on B-mode ultrasound *is* a texture statistic. Consistent
-   across all five folds (+5.1, +6.6, +7.0, +6.5, +8.0).
-3. **Ensembling did not help.** The best stack ties the single best model
-   (McNemar p = 1.0), and the fitted weights put **95.4 %** of the mass on
-   `deit3_small` alone. Equal-weight averaging — the method this repository
-   used originally — is actively *worse* (0.8629) than its own best member,
-   because two weak CNNs drag a strong transformer down. A 16-model equal
-   average cannot be expected to beat one good model.
+2. **Second-order pooling is worth +8.7 balanced points** on the same backbone,
+   same schedule, same everything (0.8424 vs 0.7554), in every fold. Average
+   pooling discards the channel covariance, and malignancy on B-mode ultrasound
+   *is* a texture statistic — an independent confirmation of the mechanism Basu
+   et al. credit for GBCNet's margin, from a 4.2 M-parameter model.
+3. **Ensembling did not help.** The stack ties the single best model
+   (McNemar p = 0.69) and the fitted weights put **99.5 %** of the mass on
+   `deit3_small`. Equal-weight averaging is *worse* (0.8550) than its own best
+   member. A 16-model equal average, the method this repository used
+   originally, cannot be expected to beat one good model.
+4. **Model-selection bias is not a constant.** Selecting the epoch on the
+   reported fold inflates the transformer by 0.4 points but the CNNs by 3–5.
+   Under the wrong protocol the second-order model looks close to the
+   transformer; under the right one the gap is real. See
+   [docs/results.md](docs/results.md) and
+   [docs/results_biased_v1.md](docs/results_biased_v1.md).
 
 Reaching GBCNet's 92.1 % would need its remaining ingredient, the
 visual-acuity curriculum, plus a patient-wise protocol to compare honestly.

@@ -150,3 +150,6 @@ results/**/checkpoints/
 results/gradcam/
 *.pt
 .DS_Store
+
+# Keep Spotlight off the multi-GB venv and the checkpoints rewritten each epoch
+.metadata_never_index

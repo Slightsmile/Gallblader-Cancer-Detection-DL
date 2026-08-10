@@ -189,6 +189,41 @@ def cmd_report(args) -> None:
         f"(fitted T = {temperature:.3f})."
     )
 
+    non_nested = Path("results_v1")
+    if non_nested.exists():
+        try:
+            old_probs, old_meta = load_oof(non_nested, task="diagnosis")
+        except FileNotFoundError:
+            old_probs = {}
+        if old_probs:
+            old_y = old_meta["diagnosis_idx"].to_numpy()
+            lines += [
+                "",
+                "## What model-selection bias was worth",
+                "",
+                "Identical models and hyperparameters; the only difference is whether the "
+                "stopping epoch and the raw-vs-EMA choice were made on the reported fold "
+                "(`non-nested`) or on a separate inner split (`nested`). "
+                "See `docs/results_biased_v1.md` for the superseded run.",
+                "",
+                "| model | non-nested balanced acc. | nested balanced acc. | bias |",
+                "| --- | --- | --- | --- |",
+            ]
+            for name in sorted(set(old_probs) & set(probs)):
+                a = compute_metrics(old_probs[name], old_y).balanced_accuracy
+                b = compute_metrics(probs[name], y).balanced_accuracy
+                lines.append(f"| {name} | {a:.4f} | {b:.4f} | **{(a - b) * 100:+.1f} pt** |")
+            lines += [
+                "",
+                "The bias is not a constant that can be assumed away: it is near zero for the "
+                "transformer and several points for the convolutional models, which have "
+                "noisier epoch-to-epoch validation curves and therefore gain more from being "
+                "allowed to pick their best epoch on the reported data. Under the non-nested "
+                "protocol the second-order model looks close to the transformer; under the "
+                "nested one the gap is real. A leaderboard built the wrong way would have "
+                "ranked these models differently.",
+            ]
+
     shortcuts = out / "shortcut_baselines.csv"
     if shortcuts.exists():
         lines += [

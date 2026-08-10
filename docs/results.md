@@ -8,22 +8,22 @@ All numbers are out-of-fold predictions from stratified 5-fold cross-validation 
 
 | model | accuracy | 95% CI | balanced acc. | macro F1 | macro AUC | malig. sens. | malig. spec. | ECE |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| deit3_small_patch16_224 | 0.8837 | [0.865, 0.900] | 0.8910 | 0.8803 | 0.9720 | 0.9094 | 0.9354 | 0.0634 |
-| efficientnet_b0_sop | 0.8582 | [0.838, 0.877] | 0.8715 | 0.8554 | 0.9578 | 0.9132 | 0.9192 | 0.1060 |
-| resnet50 | 0.7928 | [0.770, 0.814] | 0.8164 | 0.7928 | 0.9233 | 0.8830 | 0.9000 | 0.1396 |
-| efficientnet_b0 | 0.7833 | [0.760, 0.805] | 0.8052 | 0.7847 | 0.9221 | 0.8830 | 0.9000 | 0.0375 |
-| **ensemble (mean)** | 0.8629 | [0.843, 0.881] | 0.8770 | 0.8598 | 0.9681 | 0.9170 | 0.9182 | 0.1398 |
-| **ensemble (weighted)** | 0.8829 | [0.865, 0.900] | 0.8909 | 0.8798 | 0.9721 | 0.9132 | 0.9354 | 0.0698 |
-| **ensemble (stack)** | 0.8845 | [0.866, 0.901] | 0.8824 | 0.8810 | 0.9728 | 0.8566 | 0.9586 | 0.0293 |
+| deit3_small_patch16_224 | 0.8821 | [0.864, 0.900] | 0.8873 | 0.8783 | 0.9731 | 0.8981 | 0.9374 | 0.0789 |
+| efficientnet_b0_sop | 0.8215 | [0.800, 0.842] | 0.8424 | 0.8200 | 0.9465 | 0.9170 | 0.8899 | 0.1010 |
+| resnet50 | 0.7474 | [0.723, 0.771] | 0.7793 | 0.7468 | 0.9082 | 0.8679 | 0.8697 | 0.1429 |
+| efficientnet_b0 | 0.7402 | [0.716, 0.764] | 0.7554 | 0.7396 | 0.8976 | 0.8038 | 0.8899 | 0.0569 |
+| **ensemble (mean)** | 0.8550 | [0.835, 0.874] | 0.8686 | 0.8525 | 0.9625 | 0.9094 | 0.9192 | 0.1584 |
+| **ensemble (weighted)** | 0.8829 | [0.865, 0.900] | 0.8879 | 0.8791 | 0.9730 | 0.8981 | 0.9384 | 0.0804 |
+| **ensemble (stack)** | 0.8853 | [0.868, 0.902] | 0.8805 | 0.8809 | 0.9713 | 0.8453 | 0.9596 | 0.0169 |
 
 ## Per-fold stability
 
 | backbone | mean CV balanced acc. | SD | best epochs |
 | --- | --- | --- | --- |
-| deit3_small_patch16_224 | 0.8910 | 0.0258 | 7, 10, 9, 10, 11 |
-| efficientnet_b0 | 0.8052 | 0.0238 | 10, 8, 7, 9, 11 |
-| efficientnet_b0 + second-order pooling | 0.8714 | 0.0212 | 9, 11, 6, 9, 11 |
-| resnet50 | 0.8164 | 0.0141 | 9, 10, 10, 8, 9 |
+| deit3_small_patch16_224 | 0.8874 | 0.0254 | 10, 11, 9, 11, 11 |
+| efficientnet_b0 | 0.7555 | 0.0198 | 8, 10, 10, 9, 10 |
+| efficientnet_b0 + second-order pooling | 0.8424 | 0.0169 | 6, 9, 11, 9, 10 |
+| resnet50 | 0.7794 | 0.0192 | 9, 10, 8, 10, 11 |
 
 ## Ensemble composition
 
@@ -31,18 +31,31 @@ Mean simplex weight fitted on the training folds of each split:
 
 | member                  |   mean_weight |   balanced_accuracy |
 |:------------------------|--------------:|--------------------:|
-| deit3_small_patch16_224 |        0.9535 |              0.8910 |
-| efficientnet_b0_sop     |        0.0396 |              0.8715 |
-| resnet50                |        0.0000 |              0.8164 |
-| efficientnet_b0         |        0.0069 |              0.8052 |
+| deit3_small_patch16_224 |        0.9953 |              0.8873 |
+| efficientnet_b0_sop     |        0.0000 |              0.8424 |
+| resnet50                |        0.0000 |              0.7793 |
+| efficientnet_b0         |        0.0047 |              0.7554 |
 
 ## Significance
 
-Exact McNemar, best ensemble (`stack`) vs. best single model (`deit3_small_patch16_224`): 28 cases the ensemble alone gets right, 27 the single model alone gets right, p = 1.
+Exact McNemar, best ensemble (`stack`) vs. best single model (`deit3_small_patch16_224`): 30 cases the ensemble alone gets right, 26 the single model alone gets right, p = 0.6889.
 
 ## Calibration
 
-Best ensemble ECE 0.0293 before temperature scaling, 0.0298 after (fitted T = 0.988).
+Best ensemble ECE 0.0169 before temperature scaling, 0.0167 after (fitted T = 0.974).
+
+## What model-selection bias was worth
+
+Identical models and hyperparameters; the only difference is whether the stopping epoch and the raw-vs-EMA choice were made on the reported fold (`non-nested`) or on a separate inner split (`nested`). See `docs/results_biased_v1.md` for the superseded run.
+
+| model | non-nested balanced acc. | nested balanced acc. | bias |
+| --- | --- | --- | --- |
+| deit3_small_patch16_224 | 0.8910 | 0.8873 | **+0.4 pt** |
+| efficientnet_b0 | 0.8052 | 0.7554 | **+5.0 pt** |
+| efficientnet_b0_sop | 0.8715 | 0.8424 | **+2.9 pt** |
+| resnet50 | 0.8164 | 0.7793 | **+3.7 pt** |
+
+The bias is not a constant that can be assumed away: it is near zero for the transformer and several points for the convolutional models, which have noisier epoch-to-epoch validation curves and therefore gain more from being allowed to pick their best epoch on the reported data. Under the non-nested protocol the second-order model looks close to the transformer; under the nested one the gap is real. A leaderboard built the wrong way would have ranked these models differently.
 
 ## Shortcut floor
 
@@ -73,6 +86,6 @@ Same backbone, same 2,294 crops, same hyperparameters; the only difference is wh
 | ResNet50 (Basu et al. 2022) | 10-fold patient-wise CV | 81.1 +/- 3.1 % |
 | InceptionV3 (Basu et al. 2022) | 10-fold patient-wise CV | 84.4 +/- 3.9 % |
 | GBCNet + visual-acuity curriculum | 10-fold patient-wise CV | 92.1 +/- 2.9 % |
-| **this work, best ensemble** | 5-fold CV grouped on source image | **88.4 %** |
+| **this work, best ensemble** | 5-fold CV grouped on source image | **88.5 %** |
 
 Our grouping is weaker than patient-wise, so this row is **not** a like-for-like comparison with GBCNet and must not be presented as one.
