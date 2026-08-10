@@ -151,3 +151,25 @@ def test_combiners_are_scored_out_of_fold_and_beat_the_weakest_member():
 def test_greedy_selection_picks_the_strongest_member_first():
     probs, meta, _ = _toy_ensemble()
     assert greedy_selection(probs, meta)[0] == "m0"
+
+
+def test_shortcut_features_are_finite_and_named():
+    from gbc.data import assign_folds, build_index
+    from gbc.shortcuts import GEOMETRY_FEATURES, INTENSITY_FEATURES, extract_features
+
+    sample = assign_folds(build_index("data")).head(20)
+    features = extract_features(sample)
+    assert set(GEOMETRY_FEATURES + INTENSITY_FEATURES) <= set(features.columns)
+    assert np.isfinite(features.to_numpy()).all()
+    assert (features["area"] == features["width"] * features["height"]).all()
+
+
+def test_shortcut_baselines_beat_chance_but_not_a_real_model():
+    """The floor must be a floor: above majority class, well below a trained CNN."""
+    from gbc.data import assign_folds, build_index
+    from gbc.shortcuts import run_shortcut_baselines
+
+    table = run_shortcut_baselines(assign_folds(build_index("data")), seed=0).set_index("baseline")
+    assert table.loc["majority class", "balanced_accuracy"] == pytest.approx(1 / 3)
+    assert table.loc["geometry + global intensity", "balanced_accuracy"] > 0.45
+    assert table.loc["geometry + global intensity", "balanced_accuracy"] < 0.80

@@ -92,6 +92,17 @@ def cmd_ensemble(args) -> None:
     np.save(Path(args.out) / "ensemble_probs.npy", combined[best_ens])
 
 
+def cmd_shortcuts(args) -> None:
+    """Report the annotation-shortcut floor any real model must clear."""
+    from .shortcuts import run_shortcut_baselines
+
+    table = run_shortcut_baselines(_index(args), seed=args.seed)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    table.to_csv(out / "shortcut_baselines.csv", index=False)
+    print(table.to_string(index=False, float_format=lambda v: f"{v:.4f}"))
+
+
 def cmd_report(args) -> None:
     """Render every generated number into docs/results.md.
 
@@ -174,6 +185,20 @@ def cmd_report(args) -> None:
         f"before temperature scaling, {compute_metrics(scaled, y).expected_calibration_error:.4f} after "
         f"(fitted T = {temperature:.3f})."
     )
+
+    shortcuts = out / "shortcut_baselines.csv"
+    if shortcuts.exists():
+        lines += [
+            "",
+            "## Shortcut floor",
+            "",
+            "How much of the task is solvable *without* reading tissue. The parent ROI is a "
+            "radiologist-drawn box, so crop geometry partly encodes lesion size; these baselines "
+            "use the same grouped folds and no learned representation. A real model has to clear "
+            "this floor to be interesting.",
+            "",
+            pd.read_csv(shortcuts).to_markdown(index=False, floatfmt=".4f"),
+        ]
 
     ablation = out / "leakage_ablation" / "leakage_ablation.csv"
     if ablation.exists():
@@ -318,6 +343,10 @@ def main(argv: list[str] | None = None) -> None:
     report.add_argument("--dest", default="docs/results.md")
     report.add_argument("--bootstrap", type=int, default=2000)
     report.set_defaults(func=cmd_report)
+
+    shortcut = sub.add_parser(
+        "shortcuts", help="accuracy reachable from crop geometry/intensity alone")
+    shortcut.set_defaults(func=cmd_shortcuts)
 
     cam = sub.add_parser("cam", help="write Grad-CAM overlays")
     cam.add_argument("--checkpoint", required=True)
