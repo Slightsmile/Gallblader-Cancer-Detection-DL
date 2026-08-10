@@ -1,0 +1,33 @@
+{
+  "rows": [
+    {
+      "split_scheme": "grouped (leakage-free)",
+      "accuracy": 0.7292938099389712,
+      "balanced_accuracy": 0.7707881453494085,
+      "macro_f1": 0.7317717877757594,
+      "macro_auc": 0.897403575331779,
+      "cohen_kappa": 0.574948411651746,
+      "malignant_sensitivity": 0.7531847133757962,
+      "malignant_specificity": 0.82953181272509,
+      "expected_calibration_error": 0.05527261582212844,
+      "accuracy_ci_low": 0.7105492589363557,
+      "accuracy_ci_high": 0.7467414995640802,
+      "cv_std": 0.007597553588945253
+    },
+    {
+      "split_scheme": "ungrouped (reproduces shipped split)",
+      "accuracy": 0.7497820401046208,
+      "balanced_accuracy": 0.7877961760499002,
+      "macro_f1": 0.7479364070471326,
+      "macro_auc": 0.8997725229572179,
+      "cohen_kappa": 0.6057824497870771,
+      "malignant_sensitivity": 0.7611464968152867,
+      "malignant_specificity": 0.8763505402160864,
+      "expected_calibration_error": 0.05671397155972855,
+      "accuracy_ci_low": 0.7327811682650393,
+      "accuracy_ci_high": 0.7672188317349607,
+      "cv_std": 0.016073951312840274
+    }
+  ],
+  "inflation_accuracy": 0.0204882301656496
+}

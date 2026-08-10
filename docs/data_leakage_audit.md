@@ -76,12 +76,32 @@ submitted anywhere. The published patient-wise state of the art on this same
 data is GBCNet at **92.1 ± 2.9 %** 10-fold CV accuracy (Basu et al., CVPR 2022),
 against expert radiologists at 68–70 %.
 
-To put a number on the first defect specifically, `python -m gbc.cli
-leakage-ablation` trains one backbone twice on the identical 2,294 crops with
-identical hyperparameters, varying only whether folds are grouped on
-`image_id`. See `results/leakage_ablation/leakage_ablation.csv`. The comparable
-published measurement is 5–30 accuracy points of inflation from improper splits
-in OCT classification (Tampu et al., *Scientific Data* 2022).
+### How much of the gap is leakage? We measured it.
+
+`python -m gbc.cli leakage-ablation` trains one backbone twice on the identical
+2,294 crops with identical hyperparameters, varying only whether folds are
+grouped on `image_id`:
+
+| split scheme | accuracy | 95 % CI | balanced acc. | malignant sens. |
+| --- | --- | --- | --- | --- |
+| grouped (leakage-free) | 0.7293 | [0.711, 0.747] | 0.7708 | 0.7532 |
+| ungrouped (reproduces the shipped split) | 0.7498 | [0.733, 0.767] | 0.7878 | 0.7611 |
+
+**Source-image leakage is worth +2.0 accuracy points** — real in direction and
+consistent across every metric, but modest, and the two confidence intervals
+overlap. This is *smaller* than the 5–30 point inflation Tampu et al. measured
+for improper splits in OCT classification (*Scientific Data* 2022), and the
+difference is instructive: their leak duplicated near-identical slices, whereas
+the crops here are nested sub-regions that look substantially different from
+their parent box, so a model gains less from having seen one of them.
+
+**Do not therefore conclude that the shipped results were only 2 points
+optimistic.** The ablation isolates defect 2.1 alone, holding the task fixed at
+the well-posed 3-class label. The larger part of the gap between the previously
+reported 87.17 % and the 78.3 % measured here comes from defect 2.3 — the
+5-way label — and the two cannot be decomposed further, because the label
+spaces differ and the numbers are not measuring the same quantity. That is
+precisely why the old figure is uninterpretable rather than merely inflated.
 
 ## 4. The corrected protocol used in this repository
 

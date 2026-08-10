@@ -61,10 +61,14 @@ Under a **patient-wise** protocol on this same dataset:
 | GBCNet | 88.2 ± 5.1 % |
 | **GBCNet + visual-acuity curriculum** | **92.1 ± 2.9 %** |
 
-Recent papers reporting 96–98.5 % on GBCU use *random* image-level splits.
-Comparable inflation from improper splits has been measured at 5–30 accuracy
-points elsewhere in medical imaging. See
+Recent papers reporting 96–98.5 % on GBCU use *random* image-level splits. See
 [docs/literature_review.md](docs/literature_review.md).
+
+Our controlled ablation puts the split defect at **+2.0 accuracy points**
+(0.7293 grouped vs 0.7498 ungrouped, overlapping CIs) — smaller than the 5–30
+points reported for duplicate-slice leakage elsewhere, because nested ROI crops
+differ more from each other than duplicated frames do. The larger share of the
+gap to the old 87.17 % came from the **ill-posed 5-way label**, not the split.
 
 ## Results
 

@@ -12,8 +12,13 @@ What this repository *does* have that the literature does not:
 
 1. **A quantified leakage audit of a circulating GBCU derivative.** 34.1 % of
    source images appear in more than one split; the 5-way label is ill-posed for
-   823 of 1,255 images. The ablation in `gbc.cli leakage-ablation` measures the
-   accuracy this buys, with everything else held fixed.
+   823 of 1,255 images. The controlled ablation measures the split defect at
+   **+2.0 accuracy points** — a useful, non-obvious result, because it is well
+   below the 5–30 points reported for slice-level leakage elsewhere and shows
+   that *nested-ROI* leakage behaves differently from duplicate-frame leakage.
+   The headline is therefore not "leakage inflated the number by X"; it is that
+   **the dominant defect was the label definition, not the split**, which is a
+   more interesting and more transferable warning for the field.
 2. **The multi-label pathology task** (stone / mural thickening / malignancy)
    that the nested box annotations actually encode. No prior GBCU paper reports
    it.
@@ -42,7 +47,8 @@ it.*
 5. **Experiments.**
    - E1 3-class diagnosis under grouped 5-fold CV — per-model and ensemble,
      with bootstrap CIs and McNemar tests.
-   - E2 leakage ablation — grouped vs ungrouped folds, same model, same data.
+   - E2 leakage ablation — grouped vs ungrouped folds, same model, same data
+     (measured: +2.0 accuracy points, CIs overlapping).
    - E3 multi-label pathology — per-label AUC and mAP.
    - E4 calibration — ECE before and after temperature scaling, reliability
      diagrams.
