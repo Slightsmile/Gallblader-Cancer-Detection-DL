@@ -173,3 +173,37 @@ def test_shortcut_baselines_beat_chance_but_not_a_real_model():
     assert table.loc["majority class", "balanced_accuracy"] == pytest.approx(1 / 3)
     assert table.loc["geometry + global intensity", "balanced_accuracy"] > 0.45
     assert table.loc["geometry + global intensity", "balanced_accuracy"] < 0.80
+
+
+def test_covariance_pool_is_symmetric_and_permutation_invariant():
+    """Covariance pooling must ignore spatial order but not channel structure."""
+    from gbc.sop import CovariancePool
+
+    torch.manual_seed(0)
+    pool = CovariancePool(16, dim=8).eval()
+    features = torch.randn(2, 16, 5, 5)
+    with torch.no_grad():
+        base = pool(features)
+        shuffled = pool(features.flatten(2)[:, :, torch.randperm(25)].reshape(2, 16, 5, 5))
+    assert base.shape == (2, pool.out_features)
+    assert torch.allclose(base, shuffled, atol=1e-4), "pooling must be order-invariant"
+
+
+def test_second_order_head_trains_and_differs_from_average_pooling():
+    from gbc.models import build_model
+
+    sop = build_model("efficientnet_b0", 3, pretrained=False, second_order=True)
+    avg = build_model("efficientnet_b0", 3, pretrained=False)
+    x = torch.randn(2, 3, 224, 224)
+    out = sop(x)
+    assert out.shape == (2, 3) and torch.isfinite(out).all()
+    out.sum().backward()
+    assert any(p.grad is not None and torch.isfinite(p.grad).all() for p in sop.parameters())
+    assert sop.pool.out_features > avg.num_features, "covariance features are higher-dimensional"
+
+
+def test_second_order_rejects_token_backbones():
+    from gbc.models import build_model
+
+    with pytest.raises(ValueError, match="token features"):
+        build_model("deit3_small_patch16_224", 3, pretrained=False, second_order=True)

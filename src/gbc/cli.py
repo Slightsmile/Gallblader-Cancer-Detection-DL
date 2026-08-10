@@ -57,6 +57,7 @@ def cmd_train(args) -> None:
         lr=args.lr,
         clahe=not args.no_clahe,
         mixup_alpha=args.mixup,
+        second_order=args.second_order,
         num_workers=args.workers,
         seed=args.seed,
     )
@@ -332,6 +333,8 @@ def main(argv: list[str] | None = None) -> None:
     train.add_argument("--lr", type=float, default=2e-4)
     train.add_argument("--mixup", type=float, default=0.2)
     train.add_argument("--no-clahe", action="store_true")
+    train.add_argument("--second-order", action="store_true",
+                       help="covariance pooling head instead of global average pooling")
     train.add_argument("--workers", type=int, default=0)
     train.set_defaults(func=cmd_train)
 

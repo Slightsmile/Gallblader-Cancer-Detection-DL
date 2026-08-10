@@ -35,6 +35,7 @@ class TrainConfig:
     mixup_alpha: float = 0.2
     ema_decay: float = 0.98
     patience: int = 8
+    second_order: bool = False
     balance_classes: bool = True
     tta_hflip: bool = True
     num_workers: int = 4
@@ -129,7 +130,7 @@ def train_fold(
     train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, drop_last=True, **loader_kw)
     val_loader = DataLoader(val_ds, batch_size=cfg.batch_size * 2, shuffle=False, **loader_kw)
 
-    model = build_model(cfg.backbone, cfg.num_outputs).to(device)
+    model = build_model(cfg.backbone, cfg.num_outputs, second_order=cfg.second_order).to(device)
     ema = ModelEMA(model, cfg.ema_decay)
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
     weights = class_weights(train_df).to(device) if cfg.balance_classes else None
@@ -157,7 +158,7 @@ def train_fold(
 
     result = FoldResult(fold=fold, best_epoch=-1, best_val_score=-np.inf, seconds=0.0)
     best_logits = np.zeros((len(val_df), cfg.num_outputs), dtype=np.float32)
-    ckpt_path = out_dir / f"{cfg.backbone}_{cfg.task}_fold{fold}.pt"
+    ckpt_path = out_dir / f"{cfg.backbone}{'_sop' if cfg.second_order else ''}_{cfg.task}_fold{fold}.pt"
     start = time.time()
     steps_per_epoch = max(len(train_loader), 1)
 
@@ -221,7 +222,7 @@ def run_cv(index: pd.DataFrame, cfg: TrainConfig, out_dir: str | Path) -> dict:
               f"score={result.best_val_score:.4f} @epoch {result.best_epoch} ({result.seconds:.0f}s)", flush=True)
 
     oof = pd.concat(frames).sort_values("image_id").reset_index(drop=True)
-    tag = f"{cfg.backbone}_{cfg.task}"
+    tag = f"{cfg.backbone}{'_sop' if cfg.second_order else ''}_{cfg.task}"
     oof.to_csv(out_dir / f"oof_{tag}.csv", index=False)
     summary = {
         "config": asdict(cfg),

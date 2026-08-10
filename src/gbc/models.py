@@ -21,10 +21,26 @@ BACKBONES: dict[str, int] = {
 }
 
 
-def build_model(name: str, num_outputs: int, *, pretrained: bool = True, drop_rate: float = 0.3) -> nn.Module:
-    """A timm backbone with a fresh ``num_outputs``-way head."""
+def build_model(
+    name: str,
+    num_outputs: int,
+    *,
+    pretrained: bool = True,
+    drop_rate: float = 0.3,
+    second_order: bool = False,
+) -> nn.Module:
+    """A timm backbone with a fresh ``num_outputs``-way head.
+
+    ``second_order=True`` swaps global average pooling for covariance pooling
+    (:mod:`gbc.sop`), the ingredient Basu et al. credit for most of GBCNet's
+    margin over stock backbones on this data.
+    """
     if name not in BACKBONES:
         raise KeyError(f"unknown backbone {name!r}; choose from {sorted(BACKBONES)}")
+    if second_order:
+        from .sop import SecondOrderNet
+
+        return SecondOrderNet(name, num_outputs, pretrained=pretrained, drop_rate=drop_rate)
     return timm.create_model(name, pretrained=pretrained, num_classes=num_outputs, drop_rate=drop_rate)
 
 
