@@ -1,0 +1,4 @@
+baseline,n_features,accuracy,balanced_accuracy
+majority class,0,0.4446215139442231,0.3333333333333333
+geometry only,5,0.4549800796812749,0.44824329553737147
+geometry + global intensity,13,0.5808764940239044,0.5770623407948423

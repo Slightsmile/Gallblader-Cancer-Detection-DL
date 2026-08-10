@@ -143,3 +143,13 @@ mlruns/
 # Large data files (uncomment if needed)
 # data/
 # kg_artifacts/
+# Study artefacts
+.venv/
+results/checkpoints/
+results/**/checkpoints/
+results/gradcam/
+*.pt
+.DS_Store
+
+# Keep Spotlight off the multi-GB venv and the checkpoints rewritten each epoch
+.metadata_never_index

@@ -1,0 +1,55 @@
+{
+  "n_crops": 2294,
+  "n_source_images": 1255,
+  "crops_per_split": {
+    "test": 343,
+    "training": 1605,
+    "validation": 346
+  },
+  "images_in_multiple_splits": 428,
+  "train_test_shared_images": 209,
+  "train_val_shared_images": 216,
+  "val_test_shared_images": 53,
+  "contradictory_label_images": 823,
+  "nested_box_pairs": 949,
+  "nested_box_pairs_strictly_contained": 948,
+  "examples": [
+    {
+      "image_id": "00001",
+      "crops": [
+        "test/stn/780_im00001_stn_0.png",
+        "training/abn/781_im00001_abn_1.png"
+      ]
+    },
+    {
+      "image_id": "00003",
+      "crops": [
+        "test/malg/2137_im00003_malg_1.png",
+        "training/stn/2136_im00003_stn_0.png",
+        "validation/abn/2138_im00003_abn_2.png"
+      ]
+    },
+    {
+      "image_id": "00006",
+      "crops": [
+        "training/abn/267_im00006_abn_1.png",
+        "validation/stn/266_im00006_stn_0.png"
+      ]
+    },
+    {
+      "image_id": "00009",
+      "crops": [
+        "test/abn/1959_im00009_abn_1.png",
+        "training/stn/1958_im00009_stn_0.png"
+      ]
+    },
+    {
+      "image_id": "00013",
+      "crops": [
+        "test/abn/1584_im00013_abn_1.png",
+        "training/stn/1583_im00013_stn_0.png"
+      ]
+    }
+  ],
+  "leaked_fraction": 0.34103585657370517
+}

@@ -1,13 +1,18 @@
-torch
-torchvision
-pandas
-matplotlib
-seaborn
-numpy
-scikit-learn
-timm
-tqdm
-ipywidgets
+# Reference environment: Python 3.12, macOS/Apple silicon (MPS) or CUDA.
+torch>=2.4
+torchvision>=0.19
+timm>=1.0
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.4
+scipy>=1.11
+pillow>=10.0
+matplotlib>=3.8
+seaborn>=0.13
+tqdm>=4.66
+
+# Only needed to open the retained provenance notebooks.
 jupyter
 notebook
 ipykernel
+ipywidgets
