@@ -143,3 +143,10 @@ mlruns/
 # Large data files (uncomment if needed)
 # data/
 # kg_artifacts/
+# Study artefacts
+.venv/
+results/checkpoints/
+results/**/checkpoints/
+results/gradcam/
+*.pt
+.DS_Store
