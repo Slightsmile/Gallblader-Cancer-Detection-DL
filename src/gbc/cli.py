@@ -156,7 +156,9 @@ def cmd_report(args) -> None:
     for path in sorted(out.glob("summary_*_diagnosis.json")):
         s = json.loads(path.read_text())
         epochs = ", ".join(str(f["best_epoch"]) for f in s["folds"])
-        lines.append(f"| {s['config']['backbone']} | {s['mean_val_score']:.4f} | "
+        name = s["config"]["backbone"] + (" + second-order pooling"
+                                          if s["config"].get("second_order") else "")
+        lines.append(f"| {name} | {s['mean_val_score']:.4f} | "
                      f"{s['std_val_score']:.4f} | {epochs} |")
 
     lines += [

@@ -72,9 +72,36 @@ gap to the old 87.17 % came from the **ill-posed 5-way label**, not the split.
 
 ## Results
 
-Generated numbers live in `results/` (`results_table.csv`,
-`ensemble_report.json`, `leakage_ablation/`). See
-[docs/results.md](docs/results.md).
+Out-of-fold, 5-fold CV grouped on the source image. Full table with confidence
+intervals, calibration and per-fold stability: [docs/results.md](docs/results.md).
+
+| model | accuracy | 95 % CI | balanced acc. | macro AUC | malignant sens. |
+| --- | --- | --- | --- | --- | --- |
+| efficientnet_b0 | 0.7833 | [0.760, 0.805] | 0.8052 | 0.9221 | 0.8830 |
+| resnet50 | 0.7928 | [0.770, 0.814] | 0.8164 | 0.9233 | 0.8830 |
+| efficientnet_b0 **+ second-order pooling** | 0.8582 | [0.838, 0.877] | 0.8715 | 0.9578 | 0.9132 |
+| **deit3_small** | 0.8837 | [0.865, 0.900] | **0.8910** | 0.9720 | 0.9094 |
+| ensemble (equal soft vote) | 0.8629 | [0.843, 0.881] | 0.8770 | 0.9681 | **0.9170** |
+| **ensemble (logistic stacking)** | **0.8845** | [0.866, 0.901] | 0.8824 | **0.9728** | 0.8566 |
+
+Three findings worth more than the headline number:
+
+1. **The transformer beats both CNNs by ~7 points** (0.8910 vs 0.8164 / 0.8052
+   balanced), consistent with FocusMAE's image baselines where DeiT and ViT
+   outrank ResNet50.
+2. **Second-order pooling is worth +6.6 points** on the same backbone, same
+   schedule, same everything — average pooling discards the channel covariance,
+   and malignancy on B-mode ultrasound *is* a texture statistic. Consistent
+   across all five folds (+5.1, +6.6, +7.0, +6.5, +8.0).
+3. **Ensembling did not help.** The best stack ties the single best model
+   (McNemar p = 1.0), and the fitted weights put **95.4 %** of the mass on
+   `deit3_small` alone. Equal-weight averaging — the method this repository
+   used originally — is actively *worse* (0.8629) than its own best member,
+   because two weak CNNs drag a strong transformer down. A 16-model equal
+   average cannot be expected to beat one good model.
+
+Reaching GBCNet's 92.1 % would need its remaining ingredient, the
+visual-acuity curriculum, plus a patient-wise protocol to compare honestly.
 
 ## Usage
 
