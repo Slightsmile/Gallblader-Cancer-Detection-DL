@@ -35,6 +35,7 @@ class TrainConfig:
     mixup_alpha: float = 0.2
     ema_decay: float = 0.98
     patience: int = 8
+    inner_val_splits: int = 5
     second_order: bool = False
     balance_classes: bool = True
     tta_hflip: bool = True
@@ -49,9 +50,18 @@ class TrainConfig:
 
 @dataclass
 class FoldResult:
+    """Outcome of one outer fold.
+
+    ``inner_selection_score`` is what the epoch and weight choice were made on;
+    ``outer_score`` is the reported, unbiased estimate. Keeping them apart is
+    the whole point of the nested protocol -- if they were the same number, the
+    estimate would be optimistic by the size of the model-selection search.
+    """
+
     fold: int
     best_epoch: int
-    best_val_score: float
+    inner_selection_score: float
+    outer_score: float
     seconds: float
     history: list[dict] = field(default_factory=list)
 
@@ -118,17 +128,41 @@ def _predict(model: nn.Module, loader: DataLoader, device: torch.device, *, tta_
 def train_fold(
     index: pd.DataFrame, fold: int, cfg: TrainConfig, device: torch.device, out_dir: Path
 ) -> tuple[FoldResult, np.ndarray, pd.DataFrame]:
-    """Train one fold; returns its result, the OOF logits and the held-out rows."""
-    _seed_everything(cfg.seed + fold)
-    train_df = index[index["fold"] != fold]
-    val_df = index[index["fold"] == fold]
+    """Train one outer fold under a **nested** protocol.
 
-    train_ds = ROIDataset(train_df, build_transforms(cfg.image_size, train=True, clahe=cfg.clahe), cfg.task)
-    val_ds = ROIDataset(val_df, build_transforms(cfg.image_size, train=False, clahe=cfg.clahe), cfg.task)
+    The four non-held-out folds are split again into an inner training set and
+    an inner validation set. Every decision -- which epoch to stop at, and
+    whether to keep the raw or the EMA weights -- is made on the inner
+    validation set. The outer fold is touched exactly once, at the end, to
+    produce the out-of-fold predictions that get reported. It never influences
+    training or selection, so the reported score carries no selection bias.
+    """
+    from sklearn.model_selection import StratifiedGroupKFold
+
+    _seed_everything(cfg.seed + fold)
+    outer_df = index[index["fold"] == fold]
+    pool_df = index[index["fold"] != fold]
+
+    inner = StratifiedGroupKFold(n_splits=cfg.inner_val_splits, shuffle=True,
+                                 random_state=cfg.seed + fold)
+    inner_train_idx, inner_val_idx = next(
+        inner.split(pool_df, pool_df["diagnosis_idx"], groups=pool_df["image_id"])
+    )
+    train_df = pool_df.iloc[inner_train_idx]
+    inner_val_df = pool_df.iloc[inner_val_idx]
+    assert not set(train_df["image_id"]) & set(inner_val_df["image_id"])
+    assert not set(pool_df["image_id"]) & set(outer_df["image_id"])
+
+    train_tf = build_transforms(cfg.image_size, train=True, clahe=cfg.clahe)
+    eval_tf = build_transforms(cfg.image_size, train=False, clahe=cfg.clahe)
     loader_kw = dict(num_workers=cfg.num_workers, pin_memory=device.type == "cuda",
                      persistent_workers=cfg.num_workers > 0)
-    train_loader = DataLoader(train_ds, batch_size=cfg.batch_size, shuffle=True, drop_last=True, **loader_kw)
-    val_loader = DataLoader(val_ds, batch_size=cfg.batch_size * 2, shuffle=False, **loader_kw)
+    train_loader = DataLoader(ROIDataset(train_df, train_tf, cfg.task), batch_size=cfg.batch_size,
+                              shuffle=True, drop_last=True, **loader_kw)
+    inner_loader = DataLoader(ROIDataset(inner_val_df, eval_tf, cfg.task),
+                              batch_size=cfg.batch_size * 2, shuffle=False, **loader_kw)
+    outer_loader = DataLoader(ROIDataset(outer_df, eval_tf, cfg.task),
+                              batch_size=cfg.batch_size * 2, shuffle=False, **loader_kw)
 
     model = build_model(cfg.backbone, cfg.num_outputs, second_order=cfg.second_order).to(device)
     ema = ModelEMA(model, cfg.ema_decay)
@@ -138,7 +172,6 @@ def train_fold(
     def loss_fn(logits: torch.Tensor, soft_targets: torch.Tensor) -> torch.Tensor:
         if cfg.task == "pathology":
             return F.binary_cross_entropy_with_logits(logits, soft_targets)
-        # Soft-target cross-entropy with label smoothing and optional class weights.
         n = soft_targets.size(1)
         targets = soft_targets * (1 - cfg.label_smoothing) + cfg.label_smoothing / n
         per_class = -(targets * F.log_softmax(logits, dim=1))
@@ -146,19 +179,23 @@ def train_fold(
             per_class = per_class * weights
         return per_class.sum(dim=1).mean()
 
-    y_val = np.stack(val_df[list(PATHOLOGY_CLASSES)].to_numpy()) if cfg.task == "pathology" \
-        else val_df["diagnosis_idx"].to_numpy()
+    def targets_of(frame: pd.DataFrame) -> np.ndarray:
+        if cfg.task == "pathology":
+            return frame[list(PATHOLOGY_CLASSES)].to_numpy(dtype=float)
+        return frame["diagnosis_idx"].to_numpy()
 
-    def score(logits: np.ndarray) -> float:
+    def score(logits: np.ndarray, y: np.ndarray) -> float:
         from sklearn.metrics import balanced_accuracy_score, roc_auc_score
 
         if cfg.task == "pathology":
-            return float(np.mean([roc_auc_score(y_val[:, i], logits[:, i]) for i in range(logits.shape[1])]))
-        return float(balanced_accuracy_score(y_val, logits.argmax(1)))
+            return float(np.mean([roc_auc_score(y[:, i], logits[:, i]) for i in range(logits.shape[1])]))
+        return float(balanced_accuracy_score(y, logits.argmax(1)))
 
-    result = FoldResult(fold=fold, best_epoch=-1, best_val_score=-np.inf, seconds=0.0)
-    best_logits = np.zeros((len(val_df), cfg.num_outputs), dtype=np.float32)
-    ckpt_path = out_dir / f"{cfg.backbone}{'_sop' if cfg.second_order else ''}_{cfg.task}_fold{fold}.pt"
+    y_inner = targets_of(inner_val_df)
+    result = FoldResult(fold=fold, best_epoch=-1, inner_selection_score=-np.inf,
+                        outer_score=float("nan"), seconds=0.0)
+    suffix = "_sop" if cfg.second_order else ""
+    ckpt_path = out_dir / f"{cfg.backbone}{suffix}_{cfg.task}_fold{fold}.pt"
     start = time.time()
     steps_per_epoch = max(len(train_loader), 1)
 
@@ -182,25 +219,27 @@ def train_fold(
             if step % 10 == 0:
                 _drain(device)
 
-        # With ~30 steps per epoch the EMA can lag the raw weights badly early on,
-        # so both are scored and the better one is taken as the epoch's candidate.
+        # Both weight sets are scored on the INNER validation split only.
         candidates = {"raw": model, "ema": ema.module}
-        scored = {k: _predict(m, val_loader, device, tta_hflip=cfg.tta_hflip) for k, m in candidates.items()}
-        which = max(scored, key=lambda k: score(scored[k]))
-        logits = scored[which]
-        val_score = score(logits)
-        result.history.append(
-            {"epoch": epoch, "train_loss": running / steps_per_epoch,
-             "val_score": val_score, "weights": which}
-        )
-        if val_score > result.best_val_score:
-            result.best_val_score, result.best_epoch, best_logits = val_score, epoch, logits
+        scored = {k: score(_predict(m, inner_loader, device, tta_hflip=cfg.tta_hflip), y_inner)
+                  for k, m in candidates.items()}
+        which = max(scored, key=lambda k: scored[k])
+        result.history.append({"epoch": epoch, "train_loss": running / steps_per_epoch,
+                               "inner_score": scored[which], "weights": which})
+        if scored[which] > result.inner_selection_score:
+            result.inner_selection_score, result.best_epoch = scored[which], epoch
             torch.save({"state_dict": candidates[which].state_dict(), "config": asdict(cfg)}, ckpt_path)
         elif epoch - result.best_epoch >= cfg.patience:
             break
 
+    # The outer fold is scored exactly once, with the model chosen above.
+    selected = build_model(cfg.backbone, cfg.num_outputs, pretrained=False,
+                           second_order=cfg.second_order).to(device)
+    selected.load_state_dict(torch.load(ckpt_path, map_location=device, weights_only=False)["state_dict"])
+    outer_logits = _predict(selected, outer_loader, device, tta_hflip=cfg.tta_hflip)
+    result.outer_score = score(outer_logits, targets_of(outer_df))
     result.seconds = time.time() - start
-    return result, best_logits, val_df
+    return result, outer_logits, outer_df
 
 
 def run_cv(index: pd.DataFrame, cfg: TrainConfig, out_dir: str | Path) -> dict:
@@ -218,8 +257,9 @@ def run_cv(index: pd.DataFrame, cfg: TrainConfig, out_dir: str | Path) -> dict:
         for i in range(cfg.num_outputs):
             frame[f"logit_{i}"] = logits[:, i]
         frames.append(frame)
-        print(f"[{cfg.backbone}/{cfg.task}] fold {fold}: "
-              f"score={result.best_val_score:.4f} @epoch {result.best_epoch} ({result.seconds:.0f}s)", flush=True)
+        print(f"[{cfg.backbone}{'_sop' if cfg.second_order else ''}/{cfg.task}] fold {fold}: "
+              f"outer={result.outer_score:.4f} (inner={result.inner_selection_score:.4f}) "
+              f"@epoch {result.best_epoch} ({result.seconds:.0f}s)", flush=True)
 
     oof = pd.concat(frames).sort_values("image_id").reset_index(drop=True)
     tag = f"{cfg.backbone}{'_sop' if cfg.second_order else ''}_{cfg.task}"
@@ -228,8 +268,10 @@ def run_cv(index: pd.DataFrame, cfg: TrainConfig, out_dir: str | Path) -> dict:
         "config": asdict(cfg),
         "device": str(device),
         "folds": [asdict(r) for r in results],
-        "mean_val_score": float(np.mean([r.best_val_score for r in results])),
-        "std_val_score": float(np.std([r.best_val_score for r in results])),
+        "protocol": "nested: epoch and raw/EMA chosen on an inner split; outer fold scored once",
+        "mean_val_score": float(np.mean([r.outer_score for r in results])),
+        "std_val_score": float(np.std([r.outer_score for r in results])),
+        "mean_inner_selection_score": float(np.mean([r.inner_selection_score for r in results])),
     }
     (out_dir / f"summary_{tag}.json").write_text(json.dumps(summary, indent=2))
     return summary

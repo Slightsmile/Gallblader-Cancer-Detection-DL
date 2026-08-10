@@ -207,3 +207,41 @@ def test_second_order_rejects_token_backbones():
 
     with pytest.raises(ValueError, match="token features"):
         build_model("deit3_small_patch16_224", 3, pretrained=False, second_order=True)
+
+
+def test_nested_protocol_keeps_the_outer_fold_out_of_selection(monkeypatch, tmp_path):
+    """The reported fold must never be seen during training or model selection.
+
+    Records every DataFrame the training loop builds a loader over, then checks
+    the outer fold's images appear in exactly one of them -- the final scoring
+    pass -- and never in the training or inner-validation sets.
+    """
+    import torch.nn as nn
+
+    from gbc import engine
+    from gbc.data import assign_folds, build_index
+
+    index = assign_folds(build_index("data"), n_splits=5, seed=1337)
+    seen: list[set[str]] = []
+    real_dataset = engine.ROIDataset
+
+    def spy(frame, transform, task="diagnosis"):
+        seen.append(set(frame["image_id"]))
+        return real_dataset(frame, transform, task)
+
+    monkeypatch.setattr(engine, "ROIDataset", spy)
+    monkeypatch.setattr(engine, "build_model",
+                        lambda *a, **k: nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten(), nn.Linear(3, 3)))
+
+    cfg = engine.TrainConfig(epochs=1, batch_size=32, num_workers=0, image_size=32,
+                             tta_hflip=False, clahe=False)
+    result, logits, outer_df = engine.train_fold(index, 0, cfg, torch.device("cpu"), tmp_path)
+
+    train_ids, inner_ids, outer_ids = seen[0], seen[1], seen[2]
+    expected_outer = set(index[index["fold"] == 0]["image_id"])
+    assert outer_ids == expected_outer
+    assert not (train_ids & expected_outer), "outer fold leaked into training"
+    assert not (inner_ids & expected_outer), "outer fold used for model selection"
+    assert not (train_ids & inner_ids), "inner validation leaked into training"
+    assert np.isfinite(result.outer_score) and result.inner_selection_score > -np.inf
+    assert len(outer_df) == len(expected_outer)

@@ -50,7 +50,9 @@ bootstrap confidence intervals rather than as single values.
 | optimiser | AdamW, lr 2e-4, weight decay 1e-4 |
 | schedule | 3-epoch linear warmup then cosine decay over 14 epochs |
 | weight averaging | EMA (decay 0.98); raw and EMA weights both scored each epoch, better one kept |
-| model selection | best epoch by held-out **balanced** accuracy (macro AUC for `pathology`), patience 8 |
+| cross-validation | **nested**: outer = stratified 5-fold grouped on `image_id`; inner = a further grouped 80/20 split of the four training folds |
+| model selection | best epoch, and raw vs. EMA weights, chosen on the **inner** split only (balanced accuracy; macro AUC for `pathology`), patience 8 |
+| reporting | the outer fold is scored **exactly once**, with the model selected above, and never influences training or selection |
 | inference | horizontal-flip TTA |
 | ensembling | equal soft vote, simplex-weighted vote (Nelder–Mead on log-loss), multinomial logistic stacking — all fitted inside the folds |
 | statistics | 2,000-resample percentile bootstrap CIs; exact McNemar between best ensemble and best single model; ECE (15 equal-width bins) + temperature scaling |
@@ -62,7 +64,7 @@ bootstrap confidence intervals rather than as single values.
 | `index.csv` | reconstructed per-image index with fold assignment |
 | `leakage_report.json` | machine-readable version of the audit |
 | `oof_<backbone>_diagnosis.csv` | out-of-fold logits, one row per source image |
-| `summary_<backbone>_diagnosis.json` | config, per-fold best epoch/score/runtime, mean ± SD |
+| `summary_<backbone>_diagnosis.json` | config, per-fold best epoch, inner selection score, outer score, runtime, mean ± SD |
 | `checkpoints/<backbone>_diagnosis_fold<k>.pt` | selected weights + config |
 | `results_table.csv` | all models and combiners with metrics and accuracy CIs |
 | `ensemble_report.json` | best single, best combiner, McNemar result |

@@ -52,6 +52,10 @@ it.*
    - E3 multi-label pathology — per-label AUC and mAP.
    - E4 calibration — ECE before and after temperature scaling, reliability
      diagrams.
+   - E4b model-selection bias — the non-nested numbers in
+     `docs/results_biased_v1.md` against the nested numbers in
+     `docs/results.md`. Reviewers rarely see this quantified; on a dataset this
+     small it is a genuine contribution.
    - E5 ablations — CLAHE, mixup, EMA, TTA, letterbox vs. squash.
    - E6 qualitative — Grad-CAM overlays, reviewed against the radiologist boxes.
 6. **Discussion and limitations.** Residual **patient-level** leakage
@@ -76,6 +80,8 @@ it.*
       clinical-imaging journals.
 - [ ] Remove every accuracy figure computed on the shipped split from the
       manuscript, slides and README.
+- [ ] Report only the **nested** figures as headline results; cite the
+      non-nested ones solely in the selection-bias experiment.
 
 ## Venue options
 
